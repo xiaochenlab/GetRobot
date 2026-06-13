@@ -77,3 +77,6 @@ pip install -r requirements.txt
 
 # 一键安装所有依赖
 pip install -r requirements.txt
+
+
+求求大家给个星星了
