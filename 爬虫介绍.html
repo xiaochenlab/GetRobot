@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Get-Robot | 智能网络爬虫</title>
+<style>
+/* ===================== Reset & Base ===================== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0e17;
+  --bg2: #111827;
+  --surface: #1a2332;
+  --border: #233044;
+  --accent: #00f0ff;
+  --accent2: #7b61ff;
+  --accent3: #ff3e6c;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --glow: 0 0 20px rgba(0,240,255,.3);
+  --glow2: 0 0 20px rgba(123,97,255,.3);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  line-height: 1.7;
+}
+
+::selection { background: var(--accent); color: var(--bg); }
+
+a { color: var(--accent); text-decoration: none; transition: .3s; }
+a:hover { text-shadow: var(--glow); }
+
+/* ===================== Canvas Background ===================== */
+#particle-canvas {
+  position: fixed; inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ===================== Loading Screen ===================== */
+.loading-screen {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity .8s, visibility .8s;
+}
+.loading-screen.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+.loading-screen .spinner {
+  width: 60px; height: 60px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+.loading-screen p {
+  margin-top: 20px;
+  font-size: .9rem;
+  color: var(--text-dim);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===================== Navigation ===================== */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 1000;
+  backdrop-filter: blur(20px);
+  background: rgba(10,14,23,.75);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+  height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: transform .4s;
+}
+nav.hidden { transform: translateY(-100%); }
+.nav-logo {
+  font-size: 1.2rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: 2px;
+}
+.nav-links { display: flex; gap: 28px; list-style: none; }
+.nav-links a {
+  color: var(--text-dim); font-size: .85rem;
+  letter-spacing: 1px; text-transform: uppercase;
+  position: relative; padding-bottom: 4px;
+}
+.nav-links a::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0;
+  width: 0; height: 2px;
+  background: var(--accent);
+  transition: width .3s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-links a:hover::after { width: 100%; }
+
+.nav-toggle {
+  display: none; cursor: pointer;
+  width: 28px; height: 20px;
+  flex-direction: column; justify-content: space-between;
+}
+.nav-toggle span {
+  display: block; height: 2px; width: 100%;
+  background: var(--text); border-radius: 2px;
+  transition: .3s;
+}
+
+/* ===================== Hero Section ===================== */
+.hero {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 120px 20px 80px;
+  position: relative;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(0,240,255,.08);
+  border: 1px solid rgba(0,240,255,.2);
+  padding: 6px 18px; border-radius: 50px;
+  font-size: .75rem; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 30px;
+  animation: fadeUp .8s ease-out both;
+}
+.hero-badge .dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+.hero h1 {
+  font-size: clamp(2.5rem, 7vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 24px;
+  animation: fadeUp .8s ease-out .2s both;
+}
+.hero h1 .gradient {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease-in-out infinite;
+}
+.hero p {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  color: var(--text-dim);
+  max-width: 600px;
+  margin-bottom: 40px;
+  animation: fadeUp .8s ease-out .4s both;
+}
+.hero-actions {
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  animation: fadeUp .8s ease-out .6s both;
+}
+.btn {
+  padding: 14px 32px;
+  border-radius: 12px;
+  font-size: .9rem; font-weight: 600;
+  cursor: pointer; border: none;
+  letter-spacing: 1px;
+  transition: all .3s;
+  position: relative; overflow: hidden;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: var(--bg);
+}
+.btn-primary:hover {
+  box-shadow: 0 0 30px rgba(0,240,255,.4);
+  transform: translateY(-2px);
+}
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Scroll indicator */
+.scroll-hint {
+  position: absolute; bottom: 40px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; color: var(--text-dim); font-size: .75rem;
+  animation: bounce 2s infinite;
+}
+.scroll-hint .arrow {
+  width: 20px; height: 20px;
+  border-right: 2px solid var(--text-dim);
+  border-bottom: 2px solid var(--text-dim);
+  transform: rotate(45deg);
+}
+
+/* ===================== Section Shared ===================== */
+section {
+  position: relative; z-index: 1;
+  padding: 100px 40px;
+}
+.section-header {
+  text-align: center;
+  margin-bottom: 60px;
+}
+.section-header h2 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.section-header p {
+  color: var(--text-dim);
+  max-width: 550px; margin: 0 auto;
+  font-size: 1rem;
+}
+.section-tag {
+  display: inline-block;
+  font-size: .7rem; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px;
+}
+
+/* ===================== Features Grid ===================== */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  max-width: 1100px; margin: 0 auto;
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px 28px;
+  transition: all .4s;
+  cursor: default;
+  position: relative; overflow: hidden;
+}
+.feature-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .4s;
+}
+.feature-card:hover::before { transform: scaleX(1); }
+.feature-card:hover {
+  border-color: rgba(0,240,255,.3);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,.3);
+}
+.feature-icon {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+}
+.feature-icon.blue { background: rgba(0,240,255,.1); }
+.feature-icon.purple { background: rgba(123,97,255,.1); }
+.feature-icon.red { background: rgba(255,62,108,.1); }
+.feature-icon.green { background: rgba(52,211,153,.1); }
+.feature-card h3 {
+  font-size: 1.1rem; margin-bottom: 10px; font-weight: 600;
+}
+.feature-card p {
+  color: var(--text-dim); font-size: .9rem; line-height: 1.6;
+}
+
+/* ===================== Architecture ===================== */
+.arch-section { background: var(--bg2); }
+.arch-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+.arch-node {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 20px;
+  text-align: center;
+  min-width: 130px;
+  transition: all .4s;
+  cursor: default;
+}
+.arch-node:hover {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+  transform: scale(1.05);
+}
+.arch-node .icon { font-size: 1.8rem; margin-bottom: 10px; }
+.arch-node .label {
+  font-size: .8rem; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.arch-node .desc {
+  font-size: .7rem; color: var(--text-dim); margin-top: 6px;
+}
+.arch-arrow {
+  color: var(--accent);
+  font-size: 1.4rem;
+  animation: arrowPulse 1.5s infinite;
+}
+
+/* ===================== Tech Stack ===================== */
+.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  max-width: 900px; margin: 0 auto;
+}
+.tech-pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 16px;
+  text-align: center;
+  transition: all .3s;
+  cursor: default;
+}
+.tech-pill:hover {
+  border-color: var(--accent2);
+  box-shadow: var(--glow2);
+  transform: translateY(-3px);
+}
+.tech-pill .name { font-weight: 600; font-size: .95rem; margin-bottom: 4px; }
+.tech-pill .usage { font-size: .7rem; color: var(--text-dim); }
+
+/* ===================== Interactive Terminal ===================== */
+.terminal-wrapper {
+  max-width: 720px; margin: 0 auto;
+}
+.terminal {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+}
+.terminal-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 18px;
+  background: #161b22;
+  border-bottom: 1px solid var(--border);
+}
+.terminal-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+}
+.terminal-dot.r { background: #ff5f57; }
+.terminal-dot.y { background: #febc2e; }
+.terminal-dot.g { background: #28c840; }
+.terminal-title {
+  margin-left: 12px;
+  font-size: .75rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.terminal-body {
+  padding: 20px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: .82rem;
+  line-height: 1.8;
+  min-height: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.terminal-body .prompt {
+  color: var(--accent);
+}
+.terminal-body .cmd {
+  color: #79c0ff;
+}
+.terminal-body .output {
+  color: var(--text-dim);
+}
+.terminal-body .success {
+  color: #3fb950;
+}
+.terminal-body .warning {
+  color: #d29922;
+}
+.terminal-body .error {
+  color: #f85149;
+}
+.terminal-body .highlight {
+  color: var(--accent2);
+}
+.terminal-cursor {
+  display: inline-block;
+  width: 8px; height: 16px;
+  background: var(--accent);
+  animation: blink 1s step-end infinite;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+.terminal-input-line {
+  display: flex; align-items: center;
+}
+.terminal-input {
+  background: transparent;
+  border: none; outline: none;
+  color: #79c0ff;
+  font-family: inherit;
+  font-size: inherit;
+  flex: 1;
+  caret-color: var(--accent);
+}
+.terminal-tabs {
+  display: flex; gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+.terminal-tab {
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: .75rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  transition: all .3s;
+  font-family: inherit;
+}
+.terminal-tab:hover,
+.terminal-tab.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,240,255,.06);
+}
+
+/* ===================== Flow Steps ===================== */
+.flow-steps {
+  max-width: 700px; margin: 0 auto;
+  position: relative;
+}
+.flow-steps::before {
+  content: '';
+  position: absolute;
+  left: 24px; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--accent), var(--accent2), var(--accent3));
+}
+.flow-step {
+  display: flex; gap: 24px;
+  padding: 20px 0;
+  position: relative;
+}
+.flow-step-num {
+  width: 50px; height: 50px; min-width: 50px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .9rem;
+  color: var(--accent);
+  z-index: 1;
+  transition: all .4s;
+}
+.flow-step:hover .flow-step-num {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+  background: rgba(0,240,255,.08);
+}
+.flow-step-content h4 {
+  font-size: 1rem; margin-bottom: 4px;
+}
+.flow-step-content p {
+  color: var(--text-dim); font-size: .88rem;
+}
+
+/* ===================== Stats Counter ===================== */
+.stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+}
+.stat-item { text-align: center; }
+.stat-num {
+  font-size: 2.8rem; font-weight: 800;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.stat-label {
+  font-size: .75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+
+/* ===================== Footer ===================== */
+footer {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--border);
+  padding: 40px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: .8rem;
+}
+footer .heart { color: var(--accent3); }
+
+/* ===================== Animations ===================== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(8px); }
+  60% { transform: translateY(4px); }
+}
+@keyframes arrowPulse {
+  0%, 100% { opacity: .4; transform: translateX(0); }
+  50% { opacity: 1; transform: translateX(4px); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Reveal on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all .8s cubic-bezier(.16,1,.3,1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===================== Responsive ===================== */
+@media (max-width: 768px) {
+  nav { padding: 0 20px; }
+  .nav-links { display: none; }
+  .nav-toggle { display: flex; }
+  .nav-links.open {
+    display: flex; flex-direction: column;
+    position: absolute; top: 64px; left: 0; right: 0;
+    background: rgba(10,14,23,.95);
+    backdrop-filter: blur(20px);
+    padding: 20px; gap: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  section { padding: 60px 20px; }
+  .arch-arrow { display: none; }
+  .stats-row { gap: 24px; }
+  .stat-num { font-size: 2rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div class="loading-screen" id="loader">
+  <div class="spinner"></div>
+  <p>Initializing...</p>
+</div>
+
+<!-- Particle Background -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- Navigation -->
+<nav id="navbar">
+  <div class="nav-logo">GET-ROBOT</div>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#workflow">Workflow</a></li>
+    <li><a href="#stack">Tech Stack</a></li>
+  </ul>
+  <div class="nav-toggle" id="navToggle" onclick="document.getElementById('navLinks').classList.toggle('open')">
+    <span></span><span></span><span></span>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero" id="hero">
+  <div class="hero-badge"><span class="dot"></span> Python Powered</div>
+  <h1>Meet <span class="gradient">Get-Robot</span></h1>
+  <p>一款智能命令行网络爬虫工具 — 支持自定义请求头、Tor 代理、多文件类型下载与数据清洗</p>
+  <div class="hero-actions">
+    <button class="btn btn-primary" onclick="document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Interactive Demo</button>
+    <button class="btn btn-outline" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">Explore Features</button>
+  </div>
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="arrow"></div>
+  </div>
+</section>
+
+<!-- Stats -->
+<section style="padding-top:40px; padding-bottom:40px;">
+  <div class="stats-row reveal">
+    <div class="stat-item">
+      <div class="stat-num" data-target="4">0</div>
+      <div class="stat-label">核心模块</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" data-target="12">0</div>
+      <div class="stat-label">功能函数</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" data-target="4">0</div>
+      <div class="stat-label">文件类型</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" data-target="3">0</div>
+      <div class="stat-label">提取模式</div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+  <div class="section-header reveal">
+    <span class="section-tag">Core Features</span>
+    <h2>强大功能一览</h2>
+    <p>从请求伪装到数据清洗，全流程覆盖</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <div class="feature-icon blue">&#x1f575;</div>
+      <h3>智能反爬</h3>
+      <p>随机 User-Agent 轮换、1~5 秒随机等待、异常自动重定向重试，轻松应对反爬机制。</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon purple">&#x1f512;</div>
+      <h3>Tor 代理</h3>
+      <p>一键启用 Tor 网络代理，隐藏真实 IP，支持通过 Edge 浏览器走 Tor 通道。</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon red">&#x1f3ac;</div>
+      <h3>多格式下载</h3>
+      <p>支持文本 (.html)、图片 (.png)、音频 (.mp3)、视频 (.mp4) 四种文件类型下载。</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon green">&#x1f9f9;</div>
+      <h3>数据清洗</h3>
+      <p>内置 HTML 标签提取引擎，支持 class/id 筛选，3 种提取模式，自动去重保存。</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon blue">&#x1f4dd;</div>
+      <h3>灵活配置</h3>
+      <p>自定义 Cookie、防盗链 Referer、请求头，全程命令行交互式引导，零配置上手。</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon purple">&#x1f4cb;</div>
+      <h3>日志追踪</h3>
+      <p>按日期自动归档日志，详细记录每次请求状态，方便排查问题与审计。</p>
+    </div>
+  </div>
+</section>
+
+<!-- Architecture -->
+<section class="arch-section" id="architecture">
+  <div class="section-header reveal">
+    <span class="section-tag">Architecture</span>
+    <h2>系统架构</h2>
+    <p>模块化设计，职责清晰，协同工作</p>
+  </div>
+  <div class="arch-flow reveal">
+    <div class="arch-node">
+      <div class="icon">&#x1f310;</div>
+      <div class="label">User Config</div>
+      <div class="desc">交互配置</div>
+    </div>
+    <div class="arch-arrow">&#x27a1;</div>
+    <div class="arch-node">
+      <div class="icon">&#x1f577;</div>
+      <div class="label">Spider</div>
+      <div class="desc">爬虫引擎</div>
+    </div>
+    <div class="arch-arrow">&#x27a1;</div>
+    <div class="arch-node">
+      <div class="icon">&#x2699;</div>
+      <div class="label">Main</div>
+      <div class="desc">流程调度</div>
+    </div>
+    <div class="arch-arrow">&#x27a1;</div>
+    <div class="arch-node">
+      <div class="icon">&#x1f4be;</div>
+      <div class="label">Data Clean</div>
+      <div class="desc">数据清洗</div>
+    </div>
+  </div>
+</section>
+
+<!-- Interactive Terminal Demo -->
+<section id="demo">
+  <div class="section-header reveal">
+    <span class="section-tag">Live Demo</span>
+    <h2>交互式终端</h2>
+    <p>输入命令体验 Get-Robot 的工作流程</p>
+  </div>
+  <div class="terminal-wrapper reveal">
+    <div class="terminal">
+      <div class="terminal-header">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <span class="terminal-title">Get-Robot Terminal</span>
+      </div>
+      <div class="terminal-body" id="terminalBody">
+        <div><span class="output">  ____  ____  ____  __  __  ___  _   _  _____  ____  ____ </span></div>
+        <div><span class="output"> / ___)( ___)( ___)(  \/  )/ __)( )_( )(  _ \(_  _)( ___)</span></div>
+        <div><span class="output"> \__ \ )__)  )__)  )    ( ( (__  ) _ (  )(_) ) )(   )__)</span></div>
+        <div><span class="output"> (____/(____)(____)(_/\/\_)\___)(___)(__(____/(__)  (____)</span></div>
+        <div><span class="output"></span></div>
+        <div><span class="success">[OK]</span> <span class="output">Get-Robot v1.0 initialized</span></div>
+        <div><span class="output"></span></div>
+        <div id="terminalOutput"></div>
+        <div class="terminal-input-line">
+          <span class="prompt">robot@get $ </span>
+          <input class="terminal-input" id="termInput" type="text" spellcheck="false" autofocus>
+        </div>
+      </div>
+      <div class="terminal-tabs">
+        <button class="terminal-tab active" data-scenario="crawl">Crawl</button>
+        <button class="terminal-tab" data-scenario="clean">Data Clean</button>
+        <button class="terminal-tab" data-scenario="help">Help</button>
+      </div>
+    </div>
+    <p style="text-align:center; margin-top:12px; font-size:.75rem; color:var(--text-dim);">
+      Try: <code style="color:var(--accent)">help</code> &nbsp;
+      <code style="color:var(--accent)">start</code> &nbsp;
+      <code style="color:var(--accent)">scan</code> &nbsp;
+      <code style="color:var(--accent)">clear</code>
+    </p>
+  </div>
+</section>
+
+<!-- Workflow -->
+<section id="workflow">
+  <div class="section-header reveal">
+    <span class="section-tag">Workflow</span>
+    <h2>使用流程</h2>
+    <p>简单 10 步，从启动到获取数据</p>
+  </div>
+  <div class="flow-steps">
+    <div class="flow-step reveal">
+      <div class="flow-step-num">01</div>
+      <div class="flow-step-content">
+        <h4>启动程序</h4>
+        <p>运行 <code>python src/main.py</code>，显示 ASCII 横幅</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">02</div>
+      <div class="flow-step-content">
+        <h4>配置请求头</h4>
+        <p>选择内置 User-Agent 或自定义请求头</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">03</div>
+      <div class="flow-step-content">
+        <h4>设置 Cookie & Referer</h4>
+        <p>输入 Cookie 和防盗链信息（可跳过）</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">04</div>
+      <div class="flow-step-content">
+        <h4>选择内容类型</h4>
+        <p>文本 / 图片 / 音频 / 视频</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">05</div>
+      <div class="flow-step-content">
+        <h4>输入目标 URL</h4>
+        <p>粘贴要爬取的网页地址</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">06</div>
+      <div class="flow-step-content">
+        <h4>代理设置</h4>
+        <p>选择是否启用 Tor 代理</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">07</div>
+      <div class="flow-step-content">
+        <h4>选择保存目录</h4>
+        <p>弹出文件夹选择对话框</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">08</div>
+      <div class="flow-step-content">
+        <h4>命名文件</h4>
+        <p>输入保存文件名</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">09</div>
+      <div class="flow-step-content">
+        <h4>执行爬取</h4>
+        <p>自动请求、解析、保存文件</p>
+      </div>
+    </div>
+    <div class="flow-step reveal">
+      <div class="flow-step-num">10</div>
+      <div class="flow-step-content">
+        <h4>数据清洗（可选）</h4>
+        <p>运行 data_cleaning.py 提取 HTML 标签内容</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tech Stack -->
+<section id="stack">
+  <div class="section-header reveal">
+    <span class="section-tag">Tech Stack</span>
+    <h2>技术栈</h2>
+    <p>精选依赖，轻量高效</p>
+  </div>
+  <div class="tech-grid">
+    <div class="tech-pill reveal">
+      <div class="name">Python</div>
+      <div class="usage">核心语言</div>
+    </div>
+    <div class="tech-pill reveal">
+      <div class="name">Requests</div>
+      <div class="usage">HTTP 请求</div>
+    </div>
+    <div class="tech-pill reveal">
+      <div class="name">BeautifulSoup</div>
+      <div class="usage">HTML 解析</div>
+    </div>
+    <div class="tech-pill reveal">
+      <div class="name">Art</div>
+      <div class="usage">ASCII 艺术字</div>
+    </div>
+    <div class="tech-pill reveal">
+      <div class="name">Tkinter</div>
+      <div class="usage">文件选择对话框</div>
+    </div>
+    <div class="tech-pill reveal">
+      <div class="name">Pandas</div>
+      <div class="usage">数据处理</div>
+    </div>
+    <div class="tech-pill reveal">
+      <div class="name">Logging</div>
+      <div class="usage">日志记录</div>
+    </div>
+    <div class="tech-pill reveal">
+      <div class="name">Tor</div>
+      <div class="usage">匿名代理</div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>Get-Robot &copy; 2025 &mdash; Built with <span class="heart">&hearts;</span> and Python</p>
+</footer>
+
+<script>
+/* ===================== Loader ===================== */
+window.addEventListener('load', () => {
+  setTimeout(() => document.getElementById('loader').classList.add('hide'), 800);
+});
+
+/* ===================== Particle Canvas ===================== */
+(function() {
+  const canvas = document.getElementById('particle-canvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles = [];
+  const COLORS = ['rgba(0,240,255,', 'rgba(123,97,255,', 'rgba(255,62,108,'];
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  class Particle {
+    constructor() { this.reset(); }
+    reset() {
+      this.x = Math.random() * w;
+      this.y = Math.random() * h;
+      this.vx = (Math.random() - .5) * .3;
+      this.vy = (Math.random() - .5) * .3;
+      this.r = Math.random() * 2 + .5;
+      this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      this.alpha = Math.random() * .5 + .1;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      if (this.x < 0 || this.x > w || this.y < 0 || this.y > h) this.reset();
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      ctx.fillStyle = this.color + this.alpha + ')';
+      ctx.fill();
+    }
+  }
+
+  for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+  function loop() {
+    ctx.clearRect(0, 0, w, h);
+    particles.forEach(p => { p.update(); p.draw(); });
+    // connections
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = 'rgba(0,240,255,' + (1 - dist/120) * .15 + ')';
+          ctx.lineWidth = .5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+
+/* ===================== Navbar Hide on Scroll ===================== */
+let lastY = 0;
+window.addEventListener('scroll', () => {
+  const y = window.scrollY;
+  document.getElementById('navbar').classList.toggle('hidden', y > lastY && y > 100);
+  lastY = y;
+});
+
+/* ===================== Scroll Reveal ===================== */
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: .15 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+/* ===================== Counter Animation ===================== */
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    const target = +el.dataset.target;
+    let current = 0;
+    const step = Math.max(1, Math.floor(target / 30));
+    const timer = setInterval(() => {
+      current += step;
+      if (current >= target) { current = target; clearInterval(timer); }
+      el.textContent = current;
+    }, 40);
+    counterObserver.unobserve(el);
+  });
+}, { threshold: .5 });
+document.querySelectorAll('.stat-num[data-target]').forEach(el => counterObserver.observe(el));
+
+/* ===================== Interactive Terminal ===================== */
+const termBody = document.getElementById('terminalBody');
+const termInput = document.getElementById('termInput');
+const termOutput = document.getElementById('terminalOutput');
+let currentScenario = 'crawl';
+
+const scenarios = {
+  crawl: [
+    { type: 'input', text: 'python src/main.py' },
+    { type: 'output', text: '' },
+    { type: 'success', text: '[OK] Welcome to Get-Robot!' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Use built-in User-Agent? (y/n): y' },
+    { type: 'output', text: '> Enter Cookie (or skip): ' },
+    { type: 'output', text: '  session_id=abc123; token=xyz789' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Enter Referer (or skip): https://example.com' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Content type:' },
+    { type: 'output', text, text: '  [1] Text  [2] Image  [3] Audio  [4] Video' },
+    { type: 'output', text: '  Selected: 1 (Text)' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Target URL: https://quotes.toscrape.com' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Enable Tor proxy? (y/n): n' },
+    { type: 'output', text: '' },
+    { type: 'warning', text: '[INFO] Random wait: 2.3s (anti-crawl)' },
+    { type: 'output', text: '  GET https://quotes.toscrape.com ... ' },
+    { type: 'success', text: '200 OK' },
+    { type: 'success', text: '[OK] Saved: quotes_toscrape.html (4.2 KB)' },
+    { type: 'output', text: '' },
+    { type: 'success', text: 'Done! File saved to Downloads/' },
+  ],
+  clean: [
+    { type: 'input', text: 'python src/data_cleaning.py' },
+    { type: 'output', text: '' },
+    { type: 'success', text: '[OK] Data Cleaning Module v1.0' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Detected file: quotes_toscrape.html' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Extract tags (comma-separated): span.author, div.quote' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Filter by class/id? (leave empty to skip): quote-text' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '> Mode:' },
+    { type: 'output', text: '  [1] Text only (dedup)  [2] Text (keep dup)  [3] With tags' },
+    { type: 'output', text: '  Selected: 1' },
+    { type: 'output', text: '' },
+    { type: 'warning', text: '[INFO] Extracting from 10 elements...' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '  Preview:' },
+    { type: 'highlight', text: '  "The world as we have created it is a process of our thinking..."' },
+    { type: 'highlight', text: '  "It is our choices, Harry, that show what we truly are..."' },
+    { type: 'highlight', text: '  "There are only two ways to live your life..."' },
+    { type: 'output', text: '  ... and 7 more items' },
+    { type: 'output', text: '' },
+    { type: 'success', text: '[OK] Saved: quotes_toscrape_extracted.txt' },
+  ],
+  help: [
+    { type: 'input', text: 'help' },
+    { type: 'output', text: '' },
+    { type: 'success', text: 'Get-Robot Commands:' },
+    { type: 'output', text: '' },
+    { type: 'output', text: '  start      - Launch the crawler wizard' },
+    { type: 'output', text: '  scan       - Quick URL scan (status check)' },
+    { type: 'output', text: '  clean      - Open data cleaning module' },
+    { type: 'output', text: '  config     - View current configuration' },
+    { type: 'output', text: '  logs       - Show recent log entries' },
+    { type: 'output', text: '  tor on/off - Toggle Tor proxy' },
+    { type: 'output', text: '  clear      - Clear terminal' },
+    { type: 'output', text: '  help       - Show this message' },
+    { type: 'output', text: '  exit       - Quit' },
+    { type: 'output', text: '' },
+    { type: 'highlight', text: '  Example: start → enter URL → choose type → done!' },
+  ]
+};
+
+function appendLine(type, text) {
+  const div = document.createElement('div');
+  div.className = type;
+  div.textContent = text;
+  termOutput.appendChild(div);
+  termBody.scrollTop = termBody.scrollHeight;
+}
+
+function runScenario(name) {
+  const steps = scenarios[name];
+  if (!steps) return;
+  termOutput.innerHTML = '';
+  let i = 0;
+  function next() {
+    if (i >= steps.length) return;
+    const s = steps[i++];
+    appendLine(s.type, s.text);
+    setTimeout(next, s.type === 'input' ? 600 : 120);
+  }
+  next();
+}
+
+// Terminal tabs
+document.querySelectorAll('.terminal-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.terminal-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentScenario = tab.dataset.scenario;
+    if (currentScenario !== 'help') {
+      appendLine('output', '');
+      appendLine('success', '[Ready] Type "start" or pick a tab above.');
+    } else {
+      runScenario('help');
+    }
+  });
+});
+
+// Terminal input
+termInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const cmd = termInput.value.trim().toLowerCase();
+  termInput.value = '';
+
+  appendLine('prompt-line', '');
+  const promptDiv = document.createElement('div');
+  promptDiv.innerHTML = '<span class="prompt">robot@get $ </span><span class="cmd">' + cmd + '</span>';
+  termOutput.appendChild(promptDiv);
+
+  if (cmd === 'clear') {
+    termOutput.innerHTML = '';
+  } else if (cmd === 'help' || cmd === '?') {
+    runScenario('help');
+  } else if (cmd === 'start' || cmd === 'crawl') {
+    runScenario('crawl');
+  } else if (cmd === 'clean') {
+    runScenario('clean');
+  } else if (cmd === 'scan') {
+    appendLine('output', '');
+    appendLine('warning', '[INFO] Quick scanning https://quotes.toscrape.com ...');
+    setTimeout(() => {
+      appendLine('success', '[OK] Status: 200 | Type: text/html | Size: 11.3 KB');
+      appendLine('output', '  Title: "Quotes to Scrape"');
+      appendLine('output', '  Links found: 14');
+      appendLine('output', '  Images found: 0');
+    }, 800);
+  } else if (cmd === 'config') {
+    appendLine('output', '');
+    appendLine('success', 'Current Configuration:');
+    appendLine('output', '  User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)...');
+    appendLine('output', '  Cookie: session_id=abc123; token=xyz789');
+    appendLine('output', '  Referer: https://example.com');
+    appendLine('output', '  Tor: disabled');
+    appendLine('output', '  Save dir: Downloads/');
+  } else if (cmd === 'logs') {
+    appendLine('output', '');
+    appendLine('success', 'Recent logs (260726.log):');
+    appendLine('output', '  10:23:01 - main.py - INFO - GET quotes.toscrape.com 200');
+    appendLine('output', '  10:23:04 - spider.py - INFO - Wait: 2.3s');
+    appendLine('output', '  10:23:07 - main.py - OK   - Saved quotes_toscrape.html');
+  } else if (cmd === 'tor on') {
+    appendLine('success', '[OK] Tor proxy enabled via Edge: 127.0.0.1:9150');
+  } else if (cmd === 'tor off') {
+    appendLine('warning', '[INFO] Tor proxy disabled');
+  } else if (cmd === 'exit' || cmd === 'quit') {
+    appendLine('output', '');
+    appendLine('success', 'Goodbye! Stay robotic. 🤖');
+    setTimeout(() => { termOutput.innerHTML = ''; }, 2000);
+  } else if (cmd) {
+    appendLine('error', `Command not found: "${cmd}" — type "help" for available commands.`);
+  }
+  termBody.scrollTop = termBody.scrollHeight;
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+# requirements.txt
+# GetRobot 项目依赖
+
+# HTTP 请求库
+requests>=2.28.0
+
+# 启动界面 ASCII 艺术字
+art>=5.0
